@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
+import favicon from 'serve-favicon';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { connectDB, isDBConnected } from './db/index.js';
 import morgan from 'morgan';
 import cors from 'cors';
@@ -8,41 +11,36 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import authRouter from './routes/auth.js';
 import placesRouter from './routes/places.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const PORT: number = parseInt(process.env.PORT ?? '8000', 10);
 
-const allowedOrigins = [
-  'http://localhost:4000',
-  'http://localhost:3000'
-];
-
 Sentry.init({
-  dsn: process.env.SENTRY_DSN || 'https://your-sentry-dsn',
+  dsn: process.env.SENTRY_DSN || '',
   integrations: [nodeProfilingIntegration()],
   tracesSampleRate: 1.0,
   profileSessionSampleRate: 1.0,
   environment: process.env.NODE_ENV || 'development',
 });
 
-// INCREASED LIMITS FOR BULK UPLOAD
+app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb', parameterLimit: 100000 }));
 
 app.use(morgan('dev'));
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    callback(null, true);
   },
   credentials: true,
 }));
 
-// FIXED LOGGING MIDDLEWARE
 app.use((req, res, next) => {
   console.log(`Received a ${req.method} request for ${req.url}`);
-  // Only log the body if it's small to prevent crash on bulk upload
   if (req.body && !Array.isArray(req.body) && Object.keys(req.body).length > 0) {
-    // console.log('Request Body:', JSON.stringify(req.body, null, 2)); 
   } else if (Array.isArray(req.body)) {
     console.log(`Request Body: Array with ${req.body.length} items (Body logging skipped for performance)`);
   }
@@ -70,7 +68,6 @@ async function startServer() {
       await connectDB();
     });
 
-    // SET TIMEOUT TO 5 MINUTES FOR THE SERVER
     server.timeout = 300000;
 
   } catch (err) {
