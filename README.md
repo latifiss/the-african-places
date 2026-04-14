@@ -1,5 +1,11 @@
 ---
 
+<div align="center">
+  <img src="./public/the_african_places.svg" alt="The African Places API Logo" width="150" height="150" />
+</div>
+
+<br/>
+
 # 🌍 The African Places API
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
