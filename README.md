@@ -1,16 +1,23 @@
 ---
 
 <div align="center">
-  <img src="./public/the_african_places.svg" alt="The African Places API Logo" width="150" height="150" />
+  <img src="./public/the_african_places.svg" alt="The African Places API Logo" width="200" height="200" />
+
+  # 🌍 The African Places API
+
 </div>
 
-<br/>
-
-# 🌍 The African Places API
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-63.6%25-blue)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-Express-green)](https://expressjs.com/)
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
+  <a href="https://www.typescriptlang.org/">
+    <img src="https://img.shields.io/badge/TypeScript-63.6%25-blue" alt="TypeScript" />
+  </a>
+  <a href="https://expressjs.com/">
+    <img src="https://img.shields.io/badge/Node.js-Express-green" alt="Node.js" />
+  </a>
+</p>
 
 Welcome to **The African Places API** – your programmatic gateway to discovering locations across Africa. 🚀
 
