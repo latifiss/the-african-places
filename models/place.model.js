@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-const placeSchema = new mongoose.Schema({
+const placeSchema = new mongoose.Schema(
+  {
     lat: Number,
     lon: Number,
     class: String,
@@ -17,30 +18,49 @@ const placeSchema = new mongoose.Schema({
     postcode: String,
     country: String,
     country_code: String,
-    // ✅ Add this GeoJSON field
     location: {
-        type: {
-            type: String,
-            enum: ['Point'],
-            required: true,
-            default: 'Point',
-        },
-        coordinates: {
-            type: [Number], // [longitude, latitude]
-            required: true,
-        },
+      type: {
+        type: String,
+        enum: ['Point'],
+        required: true,
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number],
+        required: true,
+      },
     },
-}, { timestamps: true });
-// ✅ Create 2dsphere index for geospatial queries
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id?.toString ? ret._id.toString() : ret._id;
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+      transform(doc, ret) {
+        ret.id = ret._id?.toString ? ret._id.toString() : ret._id;
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  },
+);
 placeSchema.index({ location: '2dsphere' });
 placeSchema.index({
-    display_name: 'text',
-    road: 'text',
-    suburb: 'text',
-    city: 'text',
-    state: 'text',
-    country: 'text',
+  display_name: 'text',
+  road: 'text',
+  suburb: 'text',
+  city: 'text',
+  state: 'text',
+  country: 'text',
 });
 const Place = mongoose.model('Place', placeSchema);
 export default Place;
-//# sourceMappingURL=place.model.js.map

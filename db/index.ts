@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 
-const uri = process.env.DB_URI || "";
+const uri = process.env.DB_URI || '';
+const dbName = process.env.DB_NAME || 'data';
 let isConnected = false;
 
 async function connectDB() {
@@ -10,14 +11,19 @@ async function connectDB() {
     return;
   }
 
+  if (!uri) {
+    throw new Error('DB_URI environment variable is required');
+  }
+
   try {
     await mongoose.connect(uri, {
-      dbName: 'mrm',
+      dbName,
     });
 
     isConnected = true;
     console.log('✅ MongoDB connection successful');
-  } catch (err: unknown) {
+    console.log('Connected DB:', mongoose.connection.name);
+  } catch (err) {
     const error = err as Error;
     console.error('❌ MongoDB connection failed:', error.message);
     isConnected = false;
