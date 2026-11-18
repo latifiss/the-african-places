@@ -6,7 +6,8 @@ const router = express.Router();
 
 router.post('/register', register);
 router.post('/login', login);
-router.post('/api-key', authenticateToken, generateNewApiKey);\nrouter.post('/api-key/revoke', authenticateToken, revokeUserApiKey);
+router.post('/api-key', authenticateToken, generateNewApiKey);
+router.post('/api-key/revoke', authenticateToken, revokeUserApiKey);
 router.get('/profile', authenticateToken, getProfile);
 
 export default router;
