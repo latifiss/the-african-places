@@ -15,7 +15,7 @@ function getRedis(): Redis | null {
 
   if (!redisClient) {
     try {
-      redisClient = new Redis({ url, token });
+      redisClient = new Redis({ url, token, retry: { retries: 0 } });
     } catch (error) {
       if (!redisUnavailableLogged) {
         console.warn('[cache] Redis initialization failed; continuing without cache.', error);
