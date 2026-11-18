@@ -47,9 +47,15 @@ export function cacheResponse(ttlSeconds = 300) {
     const redis = getRedis();
     if (!redis) { res.setHeader('X-Cache', 'BYPASS'); next(); return; }
 
-    let version = 0;
-    try { version = Number(await withTimeout(redis.get<number>('african-places:v2:version'))) || 0; }
-    catch (error) { logCacheFailure('Redis version lookup failed or timed out', error); }
+    let version: number;
+    try {
+      version = Number(await withTimeout(redis.get<number>('african-places:v2:version'))) || 0;
+    } catch (error) {
+      logCacheFailure('Redis version lookup failed or timed out', error);
+      res.setHeader('X-Cache', 'BYPASS');
+      next();
+      return;
+    }
     const key = cacheKey(req, version);
 
     try {
