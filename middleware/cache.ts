@@ -16,26 +16,22 @@ function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-
   if (!redisClient) {
-    try {
-      redisClient = new Redis({ url, token, retry: { retries: 0 } });
-    } catch (error) {
-      logCacheFailure('Redis initialization failed', error);
-      return null;
-    }
+    try { redisClient = new Redis({ url, token, retry: { retries: 0 } }); }
+    catch (error) { logCacheFailure('Redis initialization failed', error); return null; }
   }
   return redisClient;
 }
 
 function withTimeout<T>(operation: Promise<T>, timeoutMs = REDIS_OPERATION_TIMEOUT_MS): Promise<T> {
+  let timer: NodeJS.Timeout;
   return Promise.race([
     operation,
     new Promise<T>((_, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Redis operation timed out')), timeoutMs);
-      timeout.unref?.();
+      timer = setTimeout(() => reject(new Error('Redis operation timed out')), timeoutMs);
+      timer.unref?.();
     }),
-  ]);
+  ]).finally(() => clearTimeout(timer!));
 }
 
 function cacheKey(req: Request, version: number): string {
@@ -46,40 +42,28 @@ function cacheKey(req: Request, version: number): string {
 export function cacheResponse(ttlSeconds = 300) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (req.method !== 'GET' || req.headers.authorization || req.headers['x-api-key']) {
-      res.setHeader('X-Cache', 'BYPASS');
-      next();
-      return;
+      res.setHeader('X-Cache', 'BYPASS'); next(); return;
     }
-
     const redis = getRedis();
-    if (!redis) {
-      res.setHeader('X-Cache', 'BYPASS');
-      next();
-      return;
-    }
+    if (!redis) { res.setHeader('X-Cache', 'BYPASS'); next(); return; }
 
-    let version = 0;\n    try { version = Number(await withTimeout(redis.get<number>('african-places:v2:version'))) || 0; }\n    catch (error) { logCacheFailure('Redis version lookup failed or timed out', error); }\n    const key = cacheKey(req, version);
+    let version = 0;
+    try { version = Number(await withTimeout(redis.get<number>('african-places:v2:version'))) || 0; }
+    catch (error) { logCacheFailure('Redis version lookup failed or timed out', error); }
+    const key = cacheKey(req, version);
+
     try {
       const cached = await withTimeout(redis.get<unknown>(key));
       if (cached !== null && cached !== undefined) {
         const entry = typeof cached === 'string' ? JSON.parse(cached) as unknown : cached;
-        if (
-          entry !== null &&
-          typeof entry === 'object' &&
-          'status' in entry &&
-          typeof entry.status === 'number' &&
-          entry.status >= 200 &&
-          entry.status < 300 &&
-          'body' in entry
-        ) {
+        if (entry !== null && typeof entry === 'object' && 'status' in entry &&
+            typeof entry.status === 'number' && entry.status >= 200 && entry.status < 300 && 'body' in entry) {
           res.setHeader('X-Cache', 'HIT');
           res.status(entry.status).json(entry.body);
           return;
         }
       }
-    } catch (error) {
-      logCacheFailure('Redis read failed or timed out', error);
-    }
+    } catch (error) { logCacheFailure('Redis read failed or timed out', error); }
 
     res.setHeader('X-Cache', 'MISS');
     const originalJson = res.json.bind(res);
@@ -91,24 +75,18 @@ export function cacheResponse(ttlSeconds = 300) {
             void withTimeout(redis.set(key, payload, { ex: ttlSeconds }))
               .catch((error) => logCacheFailure('Redis write failed or timed out', error));
           }
-        } catch (error) {
-          logCacheFailure('Cache serialization failed', error);
-        }
+        } catch (error) { logCacheFailure('Cache serialization failed', error); }
       }
       return originalJson(body);
     }) as Response['json'];
-
     next();
   };
 }
 
-/** Bump the cache namespace after a successful place write. */
+/** Invalidate all cached place reads by advancing the cache namespace. */
 export async function invalidatePlaceCache(): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
-  try {
-    await withTimeout(redis.incr('african-places:v2:version'));
-  } catch (error) {
-    logCacheFailure('Redis invalidation failed or timed out', error);
-  }
+  try { await withTimeout(redis.incr('african-places:v2:version')); }
+  catch (error) { logCacheFailure('Redis invalidation failed or timed out', error); }
 }
