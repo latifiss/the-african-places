@@ -11,8 +11,12 @@ function jwtSecret(): string {
 }
 const hashApiKey = (key: string) => crypto.createHash('sha256').update(key).digest('hex');
 export const generateApiKey = async (userId: string): Promise<string> => {
+ const user = await User.findById(userId).select('apiKeys');
+ if (!user) throw new Error('User not found');
+ if (user.apiKeys.length >= 10) throw new Error('Maximum of 10 active API keys reached');
  const apiKey = `tap_${crypto.randomBytes(32).toString('hex')}`;
- await User.findByIdAndUpdate(userId, { $push: { apiKeys: { hash: hashApiKey(apiKey), prefix: apiKey.slice(0, 12), createdAt: new Date() } } }, { runValidators: true });
+ user.apiKeys.push({ hash: hashApiKey(apiKey), prefix: apiKey.slice(0, 12), createdAt: new Date() });
+ await user.save();
  return apiKey;
 };
 export const revokeApiKey = async (apiKey: string): Promise<boolean> => {
