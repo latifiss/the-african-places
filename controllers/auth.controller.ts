@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/user.js';
-import { generateToken, generateApiKey } from '../middleware/auth.js';
+import { generateToken, generateApiKey, revokeApiKey } from '../middleware/auth.js';
 import type { AuthRequest } from '../middleware/auth.js';
 const validEmail = (value: unknown): value is string => typeof value === 'string' && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -38,4 +38,15 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
  const user = await User.findById(req.user.userId).select('email name isActive');
  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
  res.json({ user: { id: user._id, email: user.email, name: user.name, isActive: user.isActive } });
+};
+
+export const revokeUserApiKey = async (req: AuthRequest, res: Response): Promise<void> => {
+ if (!req.user?.userId) { res.status(401).json({ error: 'Authentication required' }); return; }
+ const { apiKey } = req.body ?? {};
+ if (typeof apiKey !== 'string' || !apiKey.startsWith('tap_') || apiKey.length !== 68) {
+  res.status(400).json({ error: 'A valid API key is required' }); return;
+ }
+ const revoked = await revokeApiKey(apiKey);
+ if (!revoked) { res.status(404).json({ error: 'API key not found' }); return; }
+ res.status(200).json({ message: 'API key revoked successfully' });
 };
