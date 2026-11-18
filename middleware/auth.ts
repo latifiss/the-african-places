@@ -27,7 +27,7 @@ export const revokeApiKey = async (apiKey: string, userId: string): Promise<bool
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
  const [scheme, token] = req.header('authorization')?.split(' ') ?? [];
  if (scheme?.toLowerCase() !== 'bearer' || !token) { res.status(401).json({ error: 'Authentication token required' }); return; }
- try { req.user = jwt.verify(token, jwtSecret(), { issuer: 'the-african-places-api', audience: 'the-african-places' }) as UserPayload; next(); }
+ try { req.user = jwt.verify(token, jwtSecret()) as UserPayload; next(); }
  catch { res.status(401).json({ error: 'Invalid or expired token' }); }
 };
 export const authenticateApiKey = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
