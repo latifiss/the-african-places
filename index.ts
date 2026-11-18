@@ -1,8 +1,6 @@
 import 'dotenv/config';
+import 'express-async-errors';
 import express from 'express';
-import favicon from 'serve-favicon';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import morgan from 'morgan';
 import cors from 'cors';
@@ -15,8 +13,6 @@ import { generalRateLimit, authRateLimit } from './middleware/rateLimit.js';
 import authRouter from './routes/auth.js';
 import placesRouter from './routes/places.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '8000', 10);
 const isProduction = process.env.NODE_ENV === 'production';
@@ -55,7 +51,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .filter(Boolean);
 
 app.use(cors({
-  origin: allowedOrigins.length ? allowedOrigins : true,
+  origin: allowedOrigins.length ? allowedOrigins : false,
   credentials: false,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Request-ID'],
