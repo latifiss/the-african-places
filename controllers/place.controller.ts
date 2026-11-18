@@ -9,6 +9,7 @@ const validSearchTerm = (value: unknown): value is string =>
 
 const formatPlaceData = (item: any) => {
   if (!item || typeof item !== 'object') return null;
+  if (item.lat === undefined || item.lat === null || String(item.lat).trim() === '' || item.lon === undefined || item.lon === null || String(item.lon).trim() === '') return null;
   const lat = Number(item.lat);
   const lon = Number(item.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
@@ -47,7 +48,7 @@ const autocompletePlaces = async (req: Request, res: Response): Promise<void> =>
   if (query.length < 2 || query.length > 100) { res.json([]); return; }
   const results = await Place.find({
     display_name: { $regex: `^${escapeRegex(query)}| ${escapeRegex(query)}`, $options: 'i' },
-  }).select('display_name name lat lon').limit(10).maxTimeMS(3000).lean();
+  }).select('display_name name lat lon').limit(10).maxTimeMS(3000);
   res.json(results);
 };
 
@@ -59,13 +60,13 @@ const getBoundingBox = (lat: number, lon: number, radiusKm: number) => {
 };
 
 const getPlaces = async (_req: Request, res: Response): Promise<void> => {
-  const places = await Place.find().limit(100).maxTimeMS(5000).lean();
+  const places = await Place.find().limit(100).maxTimeMS(5000);
   res.json(places);
 };
 
 const getPlaceById = async (req: Request, res: Response): Promise<void> => {
   if (!isValidObjectId(req.params.id)) { res.status(400).json({ message: 'Invalid place ID' }); return; }
-  const place = await Place.findById(req.params.id).maxTimeMS(3000).lean();
+  const place = await Place.findById(req.params.id).maxTimeMS(3000);
   if (!place) { res.status(404).json({ message: 'Place not found' }); return; }
   res.json(place);
 };
