@@ -43,3 +43,12 @@ export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunctio
  next();
 };
 export const generateToken = (payload: UserPayload): string => jwt.sign(payload, jwtSecret(), { expiresIn: '24h', issuer: 'the-african-places-api', audience: 'the-african-places' });
+
+/** Accept either a signed-in user token or a persisted API key for write operations. */
+export const authenticateRequest = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (req.header('authorization')) {
+    authenticateToken(req, res, next);
+    return;
+  }
+  void authenticateApiKey(req, res, next);
+};
