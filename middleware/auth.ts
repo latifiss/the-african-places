@@ -19,9 +19,9 @@ export const generateApiKey = async (userId: string): Promise<string> => {
  await user.save();
  return apiKey;
 };
-export const revokeApiKey = async (apiKey: string): Promise<boolean> => {
+export const revokeApiKey = async (apiKey: string, userId: string): Promise<boolean> => {
  const hash = hashApiKey(apiKey);
- const result = await User.updateOne({ 'apiKeys.hash': hash }, { $pull: { apiKeys: { hash } } });
+ const result = await User.updateOne({ _id: userId, 'apiKeys.hash': hash }, { $pull: { apiKeys: { hash } } });
  return result.modifiedCount > 0;
 };
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
