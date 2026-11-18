@@ -42,7 +42,7 @@ export const authenticateApiKey = async (req: AuthRequest, res: Response, next: 
 export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunction): void => {
  const [scheme, token] = req.header('authorization')?.split(' ') ?? [];
  if (scheme?.toLowerCase() === 'bearer' && token) {
-  try { req.user = jwt.verify(token, jwtSecret(), { issuer: 'the-african-places-api', audience: 'the-african-places' }) as UserPayload; } catch { /* Continue anonymously. */ }
+  try { req.user = jwt.verify(token, jwtSecret()) as UserPayload; } catch { /* Continue anonymously. */ }
  }
  next();
 };
