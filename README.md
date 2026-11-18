@@ -97,11 +97,12 @@ Use `/health/live` for container liveness and `/health/ready` for load-balancer 
 | POST | `/api/auth/register` | Register | Public, rate limited |
 | POST | `/api/auth/login` | Login | Public, rate limited |
 | GET | `/api/auth/profile` | Current profile | Bearer token |
-| POST | `/api/auth/api-key` | Generate API key | Bearer token |
+| POST | `/api/auth/api-key` | Generate API key (maximum 10 active keys) | Bearer token |
+| POST | `/api/auth/api-key/revoke` | Revoke an API key | Bearer token |
 | POST | `/api/places` | Create place | Bearer token or API key |
 | POST | `/api/places/bulk` | Bulk import (max 5,000 records) | Bearer token or API key |
 
-New accounts require a valid email, a name between 2 and 100 characters, and a password between 12 and 128 characters. API keys are returned once at creation and stored as SHA-256 hashes; keep the plaintext key secure.
+New accounts require a valid email, a name between 2 and 100 characters, and a password between 12 and 128 characters. API keys are returned once at creation and stored as SHA-256 hashes; keep the plaintext key secure. You can revoke one with `POST /api/auth/api-key/revoke` and a JSON body containing the key. Keys are limited to 10 active keys per account.
 
 Example authenticated write:
 
