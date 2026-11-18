@@ -20,7 +20,7 @@ const createPlace = async (req: Request, res: Response): Promise<void> => {
   if (!formatted) { res.status(400).json({ message: 'Invalid place coordinates' }); return; }
   const place = new Place(formatted);
   await place.save();
-  void invalidatePlaceCache();
+  await invalidatePlaceCache();
   res.status(201).json(place);
 };
 
