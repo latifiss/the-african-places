@@ -15,6 +15,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist", "coverage"]
+  "include": ["index.ts", "controllers/**/*.ts", "db/**/*.ts", "middleware/**/*.ts", "models/**/*.ts", "routes/**/*.ts"],
+  "exclude": ["node_modules", "dist", "coverage", "**/*.d.ts"]
 }
