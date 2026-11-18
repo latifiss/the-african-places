@@ -33,9 +33,10 @@ const bulkCreatePlaces = async (req: Request, res: Response): Promise<void> => {
 
   try {
     const result = await Place.collection.insertMany(cleanData, { ordered: false });
-    void invalidatePlaceCache();
+    await invalidatePlaceCache();
     res.status(201).json({ success: true, insertedCount: result.insertedCount, message: `Successfully imported ${result.insertedCount} places` });
   } catch (error) {
+    await invalidatePlaceCache();
     const partial = error as { result?: { insertedCount?: number } };
     res.status(500).json({ message: 'Bulk import failed; some valid records may have been inserted', partialInsertedCount: partial.result?.insertedCount || 0 });
   }
