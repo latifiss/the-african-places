@@ -1,21 +1,23 @@
 import express from 'express';
-import { 
-  createPlace, 
-  bulkCreatePlaces, 
-  getPlaces, 
-  getNearbyPlaces, 
-  searchPlaces, 
-  autocompletePlaces, 
-  getPlaceById 
+import {
+  createPlace,
+  bulkCreatePlaces,
+  getPlaces,
+  getNearbyPlaces,
+  searchPlaces,
+  autocompletePlaces,
+  getPlaceById
 } from '../controllers/place.controller.js';
+import { cacheResponse } from '../middleware/cache.js';
 
 const router = express.Router();
 
-router.get('/', getPlaces);
-router.get('/search', searchPlaces);
-router.get('/autocomplete', autocompletePlaces);
-router.get('/nearby', getNearbyPlaces);
-router.get('/:id', getPlaceById); 
+// Cache only public read endpoints. Writes remain uncached.
+router.get('/', cacheResponse(600), getPlaces);
+router.get('/search', cacheResponse(300), searchPlaces);
+router.get('/autocomplete', cacheResponse(300), autocompletePlaces);
+router.get('/nearby', cacheResponse(180), getNearbyPlaces);
+router.get('/:id', cacheResponse(900), getPlaceById);
 
 router.post('/', createPlace);
 router.post('/bulk', bulkCreatePlaces);
