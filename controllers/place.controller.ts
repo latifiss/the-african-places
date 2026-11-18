@@ -35,7 +35,7 @@ const bulkCreatePlaces = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await Place.insertMany(cleanData, { ordered: false });
     await invalidatePlaceCache();
-    res.status(201).json({ success: true, insertedCount: result.length, message: `Successfully imported ${result.insertedCount} places` });
+    res.status(201).json({ success: true, insertedCount: result.length, message: `Successfully imported ${result.length} places` });
   } catch (error) {
     await invalidatePlaceCache();
     const partial = error as { result?: { insertedCount?: number } };
@@ -48,7 +48,7 @@ const autocompletePlaces = async (req: Request, res: Response): Promise<void> =>
   if (query.length < 2 || query.length > 100) { res.json([]); return; }
   const results = await Place.find({
     display_name: { $regex: `^${escapeRegex(query)}| ${escapeRegex(query)}`, $options: 'i' },
-  }).select('display_name name lat lon').limit(10).maxTimeMS(3000);
+  }).select('display_name name lat lon').limit(10).maxTimeMS(3000).lean();
   res.json(results);
 };
 
@@ -102,14 +102,14 @@ const getNearbyPlaces = async (req: Request, res: Response): Promise<void> => {
   const radiusInMeters = radiusInKm * 1000;
   let places = await Place.find({
     location: { $near: { $geometry: { type: 'Point', coordinates: [lon, lat] }, $maxDistance: radiusInMeters } },
-  }).limit(100).maxTimeMS(5000).lean();
+  }).limit(100).maxTimeMS(5000);
 
   if (places.length === 0) {
     const bbox = getBoundingBox(lat, lon, radiusInKm);
     places = await Place.find({
       lat: { $gte: bbox.minLat, $lte: bbox.maxLat },
       lon: { $gte: bbox.minLon, $lte: bbox.maxLon },
-    }).limit(50).maxTimeMS(5000).lean();
+    }).limit(50).maxTimeMS(5000);
   }
   res.json({ count: places.length, radius: `${radiusInKm} km`, places });
 };
