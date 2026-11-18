@@ -9,6 +9,7 @@ import {
   getPlaceById
 } from '../controllers/place.controller.js';
 import { cacheResponse } from '../middleware/cache.js';
+import { authenticateRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get('/autocomplete', cacheResponse(300), autocompletePlaces);
 router.get('/nearby', cacheResponse(180), getNearbyPlaces);
 router.get('/:id', cacheResponse(900), getPlaceById);
 
-router.post('/', createPlace);
-router.post('/bulk', bulkCreatePlaces);
+router.post('/', authenticateRequest, createPlace);
+router.post('/bulk', authenticateRequest, bulkCreatePlaces);
 
 export default router;
