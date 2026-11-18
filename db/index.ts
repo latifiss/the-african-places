@@ -3,50 +3,34 @@ import mongoose from 'mongoose';
 
 const uri = process.env.DB_URI || '';
 const dbName = process.env.DB_NAME || 'data';
-let isConnected = false;
 
-async function connectDB() {
-  if (mongoose.connection.readyState === 1) {
-    console.log('⚙️  MongoDB already connected');
-    return;
-  }
+export async function connectDB(): Promise<void> {
+  if (mongoose.connection.readyState === 1) return;
+  if (!uri) throw new Error('DB_URI environment variable is required');
 
-  if (!uri) {
-    throw new Error('DB_URI environment variable is required');
-  }
-
-  try {
-    await mongoose.connect(uri, {
-      dbName,
-    });
-
-    isConnected = true;
-    console.log('✅ MongoDB connection successful');
-    console.log('Connected DB:', mongoose.connection.name);
-  } catch (err) {
-    const error = err as Error;
-    console.error('❌ MongoDB connection failed:', error.message);
-    isConnected = false;
-    throw err;
-  }
+  await mongoose.connect(uri, {
+    dbName,
+    serverSelectionTimeoutMS: 10_000,
+    connectTimeoutMS: 10_000,
+    socketTimeoutMS: 45_000,
+    maxPoolSize: 20,
+    minPoolSize: 2,
+    maxIdleTimeMS: 30_000,
+    retryWrites: true,
+  });
+  console.info('[database] MongoDB connected', { database: mongoose.connection.name });
 }
 
-function isDBConnected() {
+export function isDBConnected(): boolean {
   return mongoose.connection.readyState === 1;
 }
 
-mongoose.connection.on('connected', () => {
-  isConnected = true;
-  console.log('🟢 Mongoose connected to DB');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('🔴 Mongoose connection error:', err);
+mongoose.connection.on('error', (error) => {
+  console.error('[database] MongoDB connection error', error);
 });
 
 mongoose.connection.on('disconnected', () => {
-  isConnected = false;
-  console.log('🟡 Mongoose disconnected');
+  console.warn('[database] MongoDB disconnected');
 });
 
-export { connectDB, isDBConnected, mongoose };
+export { mongoose };
