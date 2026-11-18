@@ -2,46 +2,51 @@ import type { Request, Response, NextFunction } from 'express';
 import { Redis } from '@upstash/redis';
 import { createHash } from 'node:crypto';
 
-const DEFAULT_TTL_SECONDS = 300;
+const REDIS_OPERATION_TIMEOUT_MS = 250;
 let redisClient: Redis | null = null;
-let redisUnavailableLogged = false;
+const loggedFailures = new Set<string>();
+
+function logCacheFailure(kind: string, error: unknown): void {
+  if (loggedFailures.has(kind)) return;
+  loggedFailures.add(kind);
+  console.warn(`[cache] ${kind}; continuing without cache.`, error);
+}
 
 function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  // Redis is optional. Missing credentials must never affect API availability.
   if (!url || !token) return null;
 
   if (!redisClient) {
     try {
       redisClient = new Redis({ url, token, retry: { retries: 0 } });
     } catch (error) {
-      if (!redisUnavailableLogged) {
-        console.warn('[cache] Redis initialization failed; continuing without cache.', error);
-        redisUnavailableLogged = true;
-      }
+      logCacheFailure('Redis initialization failed', error);
       return null;
     }
   }
-
   return redisClient;
 }
 
-function cacheKey(req: Request): string {
-  const requestIdentity = `${req.baseUrl}${req.originalUrl}`;
-  const hash = createHash('sha256').update(requestIdentity).digest('hex');
-  return `african-places:v1:${hash}`;
+function withTimeout<T>(operation: Promise<T>, timeoutMs = REDIS_OPERATION_TIMEOUT_MS): Promise<T> {
+  return Promise.race([
+    operation,
+    new Promise<T>((_, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Redis operation timed out')), timeoutMs);
+      timeout.unref?.();
+    }),
+  ]);
 }
 
-/**
- * Best-effort cache for public GET endpoints.
- * Every Redis operation is isolated: cache outages, timeouts, malformed values,
- * and serialization failures fall through to the normal request handler.
- */
-export function cacheResponse(ttlSeconds = DEFAULT_TTL_SECONDS) {
+function cacheKey(req: Request): string {
+  const identity = `${req.baseUrl}${req.originalUrl}`;
+  return `african-places:v2:${createHash('sha256').update(identity).digest('hex')}`;
+}
+
+export function cacheResponse(ttlSeconds = 300) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (req.method !== 'GET' || req.headers.authorization || req.headers['x-api-key']) {
+      res.setHeader('X-Cache', 'BYPASS');
       next();
       return;
     }
@@ -54,33 +59,42 @@ export function cacheResponse(ttlSeconds = DEFAULT_TTL_SECONDS) {
     }
 
     const key = cacheKey(req);
-
     try {
-      const cached = await redis.get<string>(key);
+      const cached = await withTimeout(redis.get<unknown>(key));
       if (cached !== null && cached !== undefined) {
-        const entry = typeof cached === 'string' ? JSON.parse(cached) : cached;
-        if (entry && typeof entry.status === 'number' && entry.status >= 200 && entry.status < 300 && 'body' in entry) {
+        const entry = typeof cached === 'string' ? JSON.parse(cached) as unknown : cached;
+        if (
+          entry !== null &&
+          typeof entry === 'object' &&
+          'status' in entry &&
+          typeof entry.status === 'number' &&
+          entry.status >= 200 &&
+          entry.status < 300 &&
+          'body' in entry
+        ) {
           res.setHeader('X-Cache', 'HIT');
           res.status(entry.status).json(entry.body);
           return;
         }
       }
     } catch (error) {
-      console.warn('[cache] Redis read failed; serving request normally.', error);
+      logCacheFailure('Redis read failed or timed out', error);
     }
 
     res.setHeader('X-Cache', 'MISS');
     const originalJson = res.json.bind(res);
-
     res.json = ((body: unknown) => {
-      // Cache only successful responses. Never let a write failure affect the response.
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        void redis.set(key, JSON.stringify({ status: res.statusCode, body }), { ex: ttlSeconds })
-          .catch((error) => {
-            console.warn('[cache] Redis write failed; response was still served.', error);
-          });
+        try {
+          const payload = JSON.stringify({ status: res.statusCode, body });
+          if (payload.length <= 1_000_000) {
+            void withTimeout(redis.set(key, payload, { ex: ttlSeconds }))
+              .catch((error) => logCacheFailure('Redis write failed or timed out', error));
+          }
+        } catch (error) {
+          logCacheFailure('Cache serialization failed', error);
+        }
       }
-
       return originalJson(body);
     }) as Response['json'];
 
