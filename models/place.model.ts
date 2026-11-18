@@ -62,20 +62,22 @@ const placeSchema = new Schema<IPlace>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform(doc, ret) {
-        ret.id = ret._id?.toString ? ret._id.toString() : ret._id;
-        delete ret._id;
-        delete ret.__v;
-        return ret;
+      transform(_doc, ret) {
+        const output = ret as Record<string, any>;
+        output.id = output._id?.toString ? output._id.toString() : output._id;
+        delete output._id;
+        delete output.__v;
+        return output;
       },
     },
     toObject: {
       virtuals: true,
-      transform(doc, ret) {
-        ret.id = ret._id?.toString ? ret._id.toString() : ret._id;
-        delete ret._id;
-        delete ret.__v;
-        return ret;
+      transform(_doc, ret) {
+        const output = ret as Record<string, any>;
+        output.id = output._id?.toString ? output._id.toString() : output._id;
+        delete output._id;
+        delete output.__v;
+        return output;
       },
     },
   }

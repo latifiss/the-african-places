@@ -1,147 +1,170 @@
----
-
 <div align="center">
-  <img src="./public/the_african_places.svg" alt="The African Places API Logo" width="200" height="200" />
-
-  # 🌍 The African Places API
-
+  <img src="./public/the_african_places.svg" alt="The African Places API" width="180" />
+  <h1>The African Places API</h1>
+  <p>Search, discover and query places across Africa.</p>
 </div>
 
-<p align="center">
-  <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
-  </a>
-  <a href="https://www.typescriptlang.org/">
-    <img src="https://img.shields.io/badge/TypeScript-63.6%25-blue" alt="TypeScript" />
-  </a>
-  <a href="https://expressjs.com/">
-    <img src="https://img.shields.io/badge/Node.js-Express-green" alt="Node.js" />
-  </a>
-</p>
+The African Places API is a Node.js, Express, TypeScript and MongoDB service powering [theafricanplaces.com](https://theafricanplaces.com).
 
-Welcome to **The African Places API** – your programmatic gateway to discovering locations across Africa. 🚀
+## Features
 
-This backend service powers the search and geospatial features for [theafricanplaces.com](https://theafricanplaces.com). It's built for performance, allowing you to search, find nearby spots, and import place data efficiently.
+- Full-text place search with a bounded regex fallback.
+- Prefix autocomplete.
+- Nearby place discovery using MongoDB geospatial indexes.
+- Single and bulk place imports.
+- Optional Upstash Redis caching for public GET requests.
+- JWT authentication and persistent, hashed API keys for write operations.
+- Health/readiness endpoints, structured request IDs, security headers, rate limits and graceful shutdown.
 
-## ✨ Key Features
+## Stack
 
-- **🔍 Intelligent Search**: Full-text and regex-based search to find places by name, road, or city.
-- **📍 Geospatial Queries**: Find places "nearby" using MongoDB's `$near` operator or a bounding box fallback.
-- **⚡ Redis Caching**: Optional Upstash Redis caching for public GET endpoints, with automatic fail-open behavior when Redis is unavailable.
-- **⚡ Bulk Import**: Optimized, high-speed insertion of many place records directly via the MongoDB native driver.
-- **🗺️ Autocomplete**: Fast, prefix-based suggestions for a smooth user experience.
-- **🛠️ Built with TypeScript**: Fully typed for better reliability and developer experience.
+- Node.js 22+
+- Express 4
+- TypeScript
+- MongoDB / Mongoose
+- Upstash Redis REST (optional)
+- Sentry (optional)
 
-## 🚀 Live Endpoints
+## Local development
 
-The API is hosted at: **`https://api.theafricanplaces.com`**
+1. Install Node.js 22 or later.
+2. Install dependencies: `npm install`.
+3. Copy `.env.example` to `.env` and configure the required values.
+4. Start the development server: `npm run dev`.
 
-For detailed, interactive documentation on all available routes, request/response formats, and examples, please visit our main website:
-👉 **[theafricanplaces.com/docs](https://theafricanplaces.com)**
+Required environment variables:
 
-*(A quick example: `GET /api/places/nearby?lat=6.5244&lon=3.3792&radius=5`)*
+```env
+NODE_ENV=development
+PORT=8000
+DB_URI=mongodb+srv://...
+DB_NAME=data
+JWT_SECRET=<at-least-32-random-characters>
+```
 
-## 🛠️ Tech Stack
+Generate a secret with `openssl rand -base64 48`. Never commit real credentials.
 
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Language**: TypeScript
-- **Database**: MongoDB with Geospatial indexes
-- **ODM**: Mongoose
-- **Cache**: Upstash Redis (optional)
+Optional configuration:
 
-## ⚡ Upstash Redis Setup
+```env
+CORS_ORIGINS=https://theafricanplaces.com,https://www.theafricanplaces.com
+TRUST_PROXY=1
+SENTRY_DSN=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+```
 
-Caching is deliberately optional. The API works normally when Redis credentials are missing or Redis is unreachable.
+Set `TRUST_PROXY` to the exact number of trusted proxy hops for your hosting platform. Do not blindly enable trust for arbitrary proxies. Set `CORS_ORIGINS` to the exact browser origins that should call the API. With no origins configured, browser cross-origin access is disabled.
 
-Add these environment variables to your deployment to enable shared caching:
+## Production build
+
+```bash
+npm install
+npm run typecheck
+npm run build
+npm start
+```
+
+The compiled application starts from `dist/index.js`. The application requires `DB_URI` and a strong `JWT_SECRET` at startup.
+
+## Docker
+
+```bash
+docker build -t african-places-api .
+docker run --env-file .env -p 8000:8000 african-places-api
+```
+
+The container runs as the unprivileged Node user and includes a liveness health check.
+
+## Health endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health/live` | Process liveness |
+| `GET /health/ready` | Readiness; returns 503 when MongoDB is disconnected |
+
+Use `/health/live` for container liveness and `/health/ready` for load-balancer readiness.
+
+## API routes
+
+| Method | Endpoint | Description | Authentication |
+| --- | --- | --- | --- |
+| GET | `/api/places` | List up to 100 places | Public |
+| GET | `/api/places/search?q=...` | Search places | Public |
+| GET | `/api/places/autocomplete?q=...` | Autocomplete | Public |
+| GET | `/api/places/nearby?lat=...&lon=...&radius=5` | Nearby places | Public |
+| GET | `/api/places/:id` | Get one place | Public |
+| POST | `/api/auth/register` | Register | Public, rate limited |
+| POST | `/api/auth/login` | Login | Public, rate limited |
+| GET | `/api/auth/profile` | Current profile | Bearer token |
+| POST | `/api/auth/api-key` | Generate API key (maximum 10 active keys) | Bearer token |
+| POST | `/api/auth/api-key/revoke` | Revoke an API key | Bearer token |
+| POST | `/api/places` | Create place | Bearer token or API key |
+| POST | `/api/places/bulk` | Bulk import (max 5,000 records) | Bearer token or API key |
+
+New accounts require a valid email, a name between 2 and 100 characters, and a password between 12 and 128 characters. API keys are returned once at creation and stored as SHA-256 hashes; keep the plaintext key secure. You can revoke one with `POST /api/auth/api-key/revoke` and a JSON body containing the key. Keys are limited to 10 active keys per account.
+
+Example authenticated write:
+
+```bash
+curl -X POST https://api.theafricanplaces.com/api/places \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -d '{"lat":5.6037,"lon":-0.1870,"name":"Accra"}'
+```
+
+Or use `X-API-Key: YOUR_API_KEY` instead of the bearer header.
+
+## Upstash Redis caching
+
+Caching is an optimization, never a dependency. Configure both variables to enable it:
 
 ```env
 UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
+UPSTASH_REDIS_REST_TOKEN=your-token
 ```
 
-Public GET endpoints under `/api/places` use these TTLs:
-
-| Endpoint | TTL |
+| Public GET endpoint | TTL |
 | --- | ---: |
-| `GET /` | 10 minutes |
-| `GET /search` | 5 minutes |
-| `GET /autocomplete` | 5 minutes |
-| `GET /nearby` | 3 minutes |
-| `GET /:id` | 15 minutes |
+| `/api/places` | 10 minutes |
+| `/api/places/search` | 5 minutes |
+| `/api/places/autocomplete` | 5 minutes |
+| `/api/places/nearby` | 3 minutes |
+| `/api/places/:id` | 15 minutes |
 
-Requests carrying an Authorization or API-key header bypass the cache. POST endpoints are never cached. Responses expose `X-Cache: HIT`, `MISS`, or `BYPASS` for observability. Redis read, write, initialization, or parsing failures are logged and ignored; the request continues to MongoDB and returns its normal response.
+The cache bypasses requests with authentication headers. Successful create and bulk-import operations advance the cache namespace so stale place results are not reused.
 
-## 📂 Project Structure
+Redis operations have a short timeout. Missing credentials, timeouts, connection errors, malformed cache entries and read/write failures fall back to MongoDB. Cache status is exposed through `X-Cache: HIT`, `MISS` or `BYPASS`. Redis failure must not make an otherwise valid API request fail.
 
-```
-.
-├── controllers/     # Request handlers (places, search, nearby logic)
-├── db/              # Database connection setup
-├── middleware/      # Custom Express middleware, including optional Redis cache
-├── models/          # Mongoose data models (e.g. Place)
-├── routes/          # API route definitions
-├── scripts/         # Utility or maintenance scripts
-├── index.ts         # Application entry point
-└── package.json
-```
+## MongoDB indexes
 
-## 🧪 Local Development
+The place model defines a 2dsphere index for nearby queries, a weighted text index for search, and supporting coordinate/name indexes. Ensure indexes are built in the production database before relying on geospatial and full-text search. Review index builds on large collections during a planned maintenance window.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/latifiss/the-african-places.git
-   cd the-african-places
-   ```
+## Operations and security
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+- Helmet security headers and gzip compression are enabled.
+- JSON bodies are limited to 2 MB; URL-encoded bodies to 256 KB.
+- Place search terms are bounded and regex metacharacters are escaped.
+- Nearby queries validate coordinate ranges and cap radius at 100 km.
+- Database queries have execution time limits and bounded result counts.
+- Authentication endpoints and the places API have rate limits.
+- Errors return a request ID and generic production messages; internal exceptions are sent to Sentry when configured.
+- SIGTERM and SIGINT trigger graceful HTTP, MongoDB and Sentry shutdown.
+- Configure MongoDB network access, database users and least-privilege permissions in the database provider.
 
-3. **Set up environment variables**
+The in-memory rate-limit store is process-local. For multi-instance deployments, configure a shared rate-limit store before relying on rate limits as a global abuse-control boundary.
 
-   Create a `.env` file with your MongoDB settings. Upstash variables are optional:
-   ```env
-   PORT=5000
-   DB_URI=your_mongodb_connection_string
-   DB_NAME=data
-   # Optional: enable Upstash Redis caching
-   UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
-   UPSTASH_REDIS_REST_TOKEN=your_upstash_rest_token
-   ```
+## CI
 
-4. **Run in development mode**
-   ```bash
-   npm run dev
-   ```
+GitHub Actions runs TypeScript typechecking and the production build for pushes and pull requests.
 
-5. **Build for production**
-   ```bash
-   npm run build
-   npm start
-   ```
+## Contributing
 
-## 🤝 Contributing
+1. Create a feature branch.
+2. Make focused changes.
+3. Run `npm run typecheck` and `npm run build`.
+4. Open a pull request.
 
-Contributions are welcome! If you have suggestions for improvements, new features, or find a bug, please feel free to open an issue or submit a pull request.
+## License
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add someAmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-Distributed under the MIT License. See the `LICENSE` file for more information.
-
-## 📞 Contact & Attribution
-
-- **Maintainer**: [latifiss](https://github.com/latifiss)
-- **Project Website**: [theafricanplaces.com](https://theafricanplaces.com)
-
----
-
-**Made with ❤️ for exploring Africa**
+MIT

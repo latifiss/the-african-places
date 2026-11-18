@@ -1,31 +1,21 @@
 import rateLimit from 'express-rate-limit';
 
-export const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    error: 'Too many requests from this IP, please try again later.'
-  },
+const commonOptions = {
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (_req: import('express').Request, res: import('express').Response) => {
+    res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  },
+};
+
+export const generalRateLimit = rateLimit({
+  ...commonOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
 });
 
 export const authRateLimit = rateLimit({
+  ...commonOptions,
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: {
-    error: 'Too many authentication attempts, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-export const apiKeyRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 50,
-  message: {
-    error: 'API rate limit exceeded, please try again in an hour.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+  limit: 10,
 });
