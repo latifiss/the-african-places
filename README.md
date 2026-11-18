@@ -59,7 +59,7 @@ Set `TRUST_PROXY` to the exact number of trusted proxy hops for your hosting pla
 ## Production build
 
 ```bash
-npm ci
+npm install
 npm run typecheck
 npm run build
 npm start
