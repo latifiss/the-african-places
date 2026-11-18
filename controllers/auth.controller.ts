@@ -46,7 +46,7 @@ export const revokeUserApiKey = async (req: AuthRequest, res: Response): Promise
  if (typeof apiKey !== 'string' || !apiKey.startsWith('tap_') || apiKey.length !== 68) {
   res.status(400).json({ error: 'A valid API key is required' }); return;
  }
- const revoked = await revokeApiKey(apiKey);
+ const revoked = await revokeApiKey(apiKey, req.user.userId);
  if (!revoked) { res.status(404).json({ error: 'API key not found' }); return; }
  res.status(200).json({ message: 'API key revoked successfully' });
 };
