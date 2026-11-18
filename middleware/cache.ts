@@ -24,14 +24,14 @@ function getRedis(): Redis | null {
 }
 
 function withTimeout<T>(operation: Promise<T>, timeoutMs = REDIS_OPERATION_TIMEOUT_MS): Promise<T> {
-  let timer: NodeJS.Timeout;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     operation,
     new Promise<T>((_, reject) => {
       timer = setTimeout(() => reject(new Error('Redis operation timed out')), timeoutMs);
       timer.unref?.();
     }),
-  ]).finally(() => clearTimeout(timer!));
+  ]).finally(() => { if (timer) clearTimeout(timer); });
 }
 
 function cacheKey(req: Request, version: number): string {
