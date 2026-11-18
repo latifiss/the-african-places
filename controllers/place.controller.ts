@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import Place from '../models/place.model.js';
+import Place from '../models/place.model.js';\nimport { isValidObjectId } from 'mongoose';\nimport { invalidatePlaceCache } from '../middleware/cache.js';\n\nconst escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\import Place from '../models/place.model.js';');\nconst validSearchTerm = (value: unknown): value is string => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 100;
 
 const formatPlaceData = (item: any) => {
   const lat = parseFloat(item.lat);
@@ -35,7 +35,7 @@ const createPlace = async (req: Request, res: Response): Promise<void> => {
 
 const bulkCreatePlaces = async (req: Request, res: Response): Promise<void> => {
   try {
-    const items = Array.isArray(req.body) ? req.body : [req.body];
+    const items = Array.isArray(req.body) ? req.body : [req.body];\n    if (items.length > 5000) { res.status(413).json({ message: 'A maximum of 5000 places can be imported per request' }); return; }
     
     const cleanData = [];
     for (const item of items) {
@@ -62,7 +62,7 @@ const bulkCreatePlaces = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const result = await Place.collection.insertMany(cleanData, { ordered: false });
+    const result = await Place.collection.insertMany(cleanData, { ordered: false });\n    void invalidatePlaceCache();
 
     res.status(201).json({
       success: true,
@@ -86,7 +86,7 @@ const autocompletePlaces = async (req: Request, res: Response): Promise<void> =>
     }
 
     const results = await Place.find({
-      display_name: { $regex: `^${query}| ${query}`, $options: 'i' }
+      display_name: { $regex: `^${escapeRegex(query)}| ${escapeRegex(query)}`, $options: 'i' }
     })
     .select('display_name name lat lon')
     .limit(10)
@@ -121,7 +121,7 @@ const getPlaces = async (req: Request, res: Response): Promise<void> => {
 
 const getPlaceById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const place = await Place.findById(req.params.id);
+    if (!isValidObjectId(req.params.id)) { res.status(400).json({ message: 'Invalid place ID' }); return; }\n    const place = await Place.findById(req.params.id);
     if (!place) {
       res.status(404).json({ message: 'Place not found' });
       return;
@@ -140,7 +140,7 @@ const searchPlaces = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let results = await Place.find({ $text: { $search: q } }).limit(10);
+    let results = await Place.find({ $text: { $search: q } }).limit(10).maxTimeMS(5000);
 
     if (results.length === 0) {
       results = await Place.find({
@@ -162,10 +162,10 @@ const getNearbyPlaces = async (req: Request, res: Response): Promise<void> => {
   try {
     const lat = parseFloat(req.query.lat as string);
     const lon = parseFloat(req.query.lon as string);
-    const radiusInKm = parseFloat(req.query.radius as string) || 5;
+    const radiusInKm = req.query.radius === undefined ? 5 : Number(req.query.radius);
 
-    if (isNaN(lat) || isNaN(lon)) {
-      res.status(400).json({ message: 'Valid coordinates required' });
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || !Number.isFinite(radiusInKm) || radiusInKm <= 0 || radiusInKm > 100) {
+      res.status(400).json({ message: 'Valid coordinates and a radius between 0 and 100 km are required' });
       return;
     }
 
@@ -188,7 +188,7 @@ const getNearbyPlaces = async (req: Request, res: Response): Promise<void> => {
       places = await Place.find({
         lat: { $gte: bbox.minLat, $lte: bbox.maxLat },
         lon: { $gte: bbox.minLon, $lte: bbox.maxLon },
-      }).limit(50);
+      }).limit(50).maxTimeMS(5000);
     }
 
     res.json({
