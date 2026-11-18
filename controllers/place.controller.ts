@@ -33,9 +33,9 @@ const bulkCreatePlaces = async (req: Request, res: Response): Promise<void> => {
   if (!cleanData.length) { res.status(400).json({ message: 'No valid records found' }); return; }
 
   try {
-    const result = await Place.collection.insertMany(cleanData, { ordered: false });
+    const result = await Place.insertMany(cleanData, { ordered: false });
     await invalidatePlaceCache();
-    res.status(201).json({ success: true, insertedCount: result.insertedCount, message: `Successfully imported ${result.insertedCount} places` });
+    res.status(201).json({ success: true, insertedCount: result.length, message: `Successfully imported ${result.insertedCount} places` });
   } catch (error) {
     await invalidatePlaceCache();
     const partial = error as { result?: { insertedCount?: number } };
@@ -75,7 +75,7 @@ const searchPlaces = async (req: Request, res: Response): Promise<void> => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   if (!validSearchTerm(q)) { res.status(400).json({ message: 'Search query must be between 1 and 100 characters' }); return; }
 
-  let results = await Place.find({ $text: { $search: q } }).limit(10).maxTimeMS(5000).lean();
+  let results = await Place.find({ $text: { $search: q } }).limit(10).maxTimeMS(5000);
   if (results.length === 0) {
     const safeQuery = escapeRegex(q);
     results = await Place.find({
@@ -84,7 +84,7 @@ const searchPlaces = async (req: Request, res: Response): Promise<void> => {
         { road: { $regex: safeQuery, $options: 'i' } },
         { city: { $regex: safeQuery, $options: 'i' } },
       ],
-    }).limit(10).maxTimeMS(3000).lean();
+    }).limit(10).maxTimeMS(3000);
   }
   res.json(results);
 };
