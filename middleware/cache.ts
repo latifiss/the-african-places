@@ -38,9 +38,9 @@ function withTimeout<T>(operation: Promise<T>, timeoutMs = REDIS_OPERATION_TIMEO
   ]);
 }
 
-function cacheKey(req: Request): string {
+function cacheKey(req: Request, version: number): string {
   const identity = `${req.baseUrl}${req.originalUrl}`;
-  return `african-places:v2:${createHash('sha256').update(identity).digest('hex')}`;
+  return `african-places:v2:${version}:${createHash('sha256').update(identity).digest('hex')}`;
 }
 
 export function cacheResponse(ttlSeconds = 300) {
@@ -58,7 +58,7 @@ export function cacheResponse(ttlSeconds = 300) {
       return;
     }
 
-    const key = cacheKey(req);
+    let version = 0;\n    try { version = Number(await withTimeout(redis.get<number>('african-places:v2:version'))) || 0; }\n    catch (error) { logCacheFailure('Redis version lookup failed or timed out', error); }\n    const key = cacheKey(req, version);
     try {
       const cached = await withTimeout(redis.get<unknown>(key));
       if (cached !== null && cached !== undefined) {
@@ -100,4 +100,15 @@ export function cacheResponse(ttlSeconds = 300) {
 
     next();
   };
+}
+
+/** Bump the cache namespace after a successful place write. */
+export async function invalidatePlaceCache(): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await withTimeout(redis.incr('african-places:v2:version'));
+  } catch (error) {
+    logCacheFailure('Redis invalidation failed or timed out', error);
+  }
 }
